@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>흑과 백</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+  :root {
+    --bg-deep: #24070b;
+    --bg-mid: #4d141c;
+    --bg-Highlight: #6b1d28;
+    --gold-light: #f6e29c;
+    --gold-mid: #d4af37;
+    --gold-dark: #8a6616;
+    --black-tile: #141416;
+    --black-tile-edge: #38383e;
+    --white-tile: #f4f1ea;
+    --white-tile-edge: #c7c0b0;
+    --win-glow: #ffd700;
+    --lose-color: #9e9e9e;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    font-family: 'Pretendard', 'Malgun Gothic', serif;
+    background: radial-gradient(circle at 50% 35%, var(--bg-Highlight) 0%, var(--bg-mid) 48%, var(--bg-deep) 100%);
+    color: #f9f3e3;
+    word-break: keep-all;
+  }
+
+  /* 앤틱 골드 테두리 장식 프레임 */
+  .app-shell {
+    width: 100%;
+    height: 100dvh;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .gold-frame {
+    flex: 1;
+    border: 2px solid var(--gold-mid);
+    box-shadow: inset 0 0 0 4px rgba(20, 5, 8, 0.7), inset 0 0 0 5px rgba(212, 175, 55, 0.45), 0 10px 30px rgba(0,0,0,0.7);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(15,3,5,0.25) 0%, rgba(15,3,5,0.55) 100%);
+  }
+
+  /* 상단 매치 명패 (영상 고증) */
+  .plaque-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px 16px 6px;
+    position: relative;
+    z-index: 5;
+  }
+
+  .plaque-box {
+    background: linear-gradient(180deg, #2b2b2b 0%, #121212 100%);
+    border: 2px solid var(--gold-mid);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.85), inset 0 1px 2px rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 6px 28px 8px;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .plaque-sub {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--gold-mid);
+    font-weight: 800;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .plaque-title {
+    font-size: clamp(20px, 3.2vw, 28px);
+    font-weight: 900;
+    letter-spacing: 6px;
+    background: linear-gradient(180deg, #fff6d1 0%, #e0b84c 55%, #9e731c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  }
+
+  /* 화면 전환 뷰 */
+  .screen {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    padding: 12px 18px 16px;
+    min-height: 0;
+  }
+  .screen.active {
+    display: flex;
+  }
+
+  /* 메인 & 브리핑 화면 공통 */
+  .center-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+    min-height: 0;
+  }
+
+  .hero-tiles {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: nowrap;
+  }
+
+  .sample-tile {
+    width: clamp(32px, 5.5vw, 48px);
+    height: clamp(46px, 8vw, 68px);
+    border-radius: 5px;
+    display: grid;
+    place-items: center;
+    font-family: 'Georgia', serif;
+    font-size: clamp(18px, 3vw, 26px);
+    font-weight: 900;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.65);
+  }
+  .sample-tile.black {
+    background: linear-gradient(145deg, #252529, #0d0d0f);
+    color: #f7f4eb;
+    border: 1.5px solid var(--gold-mid);
+  }
+  .sample-tile.white {
+    background: linear-gradient(145deg, #ffffff, #dcd5c5);
+    color: #161618;
+    border: 1.5px solid var(--gold-dark);
+  }
+
+  .tip-card {
+    width: 100%;
+    background: rgba(18, 4, 7, 0.78);
+    border: 1px solid rgba(212, 175, 55, 0.55);
+    border-radius: 10px;
+    padding: 14px 18px;
+    box-shadow: inset 0 0 18px rgba(0,0,0,0.6);
+  }
+
+  .tip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    color: var(--gold-light);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .tip-badge {
+    background: rgba(212, 175, 55, 0.2);
+    border: 1px solid var(--gold-mid);
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 11px;
+  }
+
+  .tip-body {
+    font-size: clamp(13px, 1.8vw, 15px);
+    line-height: 1.55;
+    color: #efe6d5;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .gold-btn {
+    background: linear-gradient(180deg, #382810 0%, #1c1306 100%);
+    color: var(--gold-light);
+    border: 1.5px solid var(--gold-mid);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: clamp(14px, 2vw, 16px);
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s, background 0.15s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  }
+  .gold-btn:hover {
+    background: linear-gradient(180deg, #4f3815 0%, #2b1d09 100%);
+    box-shadow: 0 0 12px rgba(212,175,55,0.45);
+  }
+  .gold-btn:active {
+    transform: scale(0.97);
+  }
+  .gold-btn.primary {
+    background: linear-gradient(180deg, #d4af37 0%, #997419 100%);
+    color: #180905;
+    border-color: #fff1b8;
+  }
+  .gold-btn.small {
+    padding: 7px 14px;
+    font-size: 13px;
+  }
+
+  /* 규칙 및 필승 전략 화면 */
+  .guide-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  @media (max-width: 700px) {
+    .guide-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .guide-box {
+    background: rgba(16, 4, 6, 0.72);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .guide-box h3 {
+    color: var(--gold-light);
+    font-size: 15px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.25);
+    padding-bottom: 4px;
+  }
+  .guide-box ul {
+    padding-left: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  /* 모드 선택 카드 */
+  .mode-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%;
+  }
+  @media (max-width: 720px) {
+    .mode-cards {
+      grid-template-columns: 1fr;
+    }
+  }
+  .mode-card {
+    background: rgba(20, 5, 8, 0.8);
+    border: 1.5px solid rgba(212, 175, 55, 0.45);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+    text-align: center;
+  }
+  .mode-card h3 {
+    color: var(--gold-light);
+    font-size: 17px;
+  }
+  .mode-card p {
+    font-size: 13px;
+    color: #d9cebe;
+    line-height: 1.45;
+  }
+
+  /* 온라인 로비 */
+  .room-code-box {
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 6px;
+    color: var(--gold-light);
+    background: #140407;
+    border: 2px dashed var(--gold-mid);
+    padding: 10px 24px;
+    border-radius: 8px;
+    text-align: center;
+  }
+  .code-input {
+    background: #140407;
+    border: 2px solid var(--gold-mid);
+    color: var(--gold-light);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    text-align: center;
+    width: 200px;
+    text-transform: uppercase;
+  }
+
+  /* ====== 본 게임 레이아웃 (100dvh 무스크롤) ====== */
+  .game-board {
+    flex: 1;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 8px;
+    min-height: 0;
+  }
+
+  /* 상단 상대방 영역 */
+  .player-zone {
+    background: rgba(15, 3, 6, 0.65);
+    border: 1px solid rgba(212, 175, 55, 0.38);
+    border-radius: 10px;
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .zone-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .profile-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .order-badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    font-size: 14px;
+    background: #2a2015;
+    color: #8c7853;
+    border: 1.5px solid #6b5835;
+  }
+  .order-badge.first {
+    background: radial-gradient(circle, #ffe885 0%, #cda028 100%);
+    color: #1a0c02;
+    border-color: #fff6cc;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+  }
+
+  .player-name {
+    font-size: clamp(14px, 2vw, 17px);
+    font-weight: 800;
+    color: #fff3db;
+  }
+
+  .score-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .remain-summary {
+    font-size: 12px;
+    color: #dfd3c3;
+    background: rgba(0,0,0,0.45);
+    padding: 4px 10px;
+    border-radius: 99px;
+    border: 1px solid rgba(212,175,55,0.3);
+  }
+  .score-pill {
+    background: linear-gradient(180deg, #871c26 0%, #520d13 100%);
+    border: 1.5px solid var(--gold-mid);
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-weight: 900;
+    font-size: clamp(14px, 2vw, 18px);
+    color: var(--gold-light);
+  }
+
+  /* 거치대 (세워진 패 9칸) */
+  .tile-rack {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: clamp(4px, 1vw, 10px);
+    max-width: 680px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 4px 0;
+  }
+
+  /* 상대방의 세워진 타일 (뒷면 색상만 노출, 빠진 자리는 빈 슬롯) */
+  .opp-slot {
+    height: clamp(42px, 6.8vh, 62px);
+    border-radius: 5px;
+    border: 1px dashed rgba(212, 175, 55, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .opp-tile-standing {
+    width: 100%;
+    height: 100%;
+    border-radius: 5px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.7);
+    transition: transform 0.25s, opacity 0.25s;
+  }
+  .opp-tile-standing.black {
+    background: linear-gradient(180deg, #26262a 0%, #101012 100%);
+    border: 1.5px solid var(--gold-mid);
+  }
+  .opp-tile-standing.white {
+    background: linear-gradient(180deg, #fbf9f5 0%, #d8d0c0 100%);
+    border: 1.5px solid #9e8547;
+  }
+
+  /* 내 타일 (앞면 숫자 표시 + 선택/제출) */
+  .my-slot {
+    height: clamp(54px, 9.2vh, 84px);
+    border-radius: 6px;
+    border: 1px dashed rgba(212, 175, 55, 0.22);
+    position: relative;
+  }
+
+  .my-tile {
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Georgia', serif;
+    font-size: clamp(22px, 3.6vw, 34px);
+    font-weight: 900;
+    cursor: pointer;
+    transition: transform 0.16s, box-shadow 0.16s;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.75);
+    position: relative;
+  }
+  .my-tile.black {
+    background: linear-gradient(160deg, #28282d 0%, #0e0e11 100%);
+    color: #ffffff;
+    border: 2px solid var(--gold-mid);
+  }
+  .my-tile.white {
+    background: linear-gradient(160deg, #ffffff 0%, #ded7c8 100%);
+    color: #141416;
+    border: 2px solid #9c7a23;
+  }
+  .my-tile:hover {
+    transform: translateY(-4px);
+  }
+  .my-tile.selected {
+    transform: translateY(-10px) scale(1.04);
+    box-shadow: 0 0 0 3px var(--win-glow), 0 12px 22px rgba(0,0,0,0.85);
+  }
+  .my-tile.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* 중앙 대결 아레나 (영상 00:48~01:02 완벽 재현) */
+  .arena-center {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    min-height: 0;
+  }
+
+  .round-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(15, 3, 5, 0.8);
+    border: 1px solid var(--gold-mid);
+    padding: 4px 18px;
+    border-radius: 99px;
+    font-size: clamp(13px, 1.9vw, 16px);
+    font-weight: 800;
+    color: var(--gold-light);
+  }
+
+  .clash-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(24px, 6vw, 64px);
+    width: 100%;
+    padding: 4px 0;
+  }
+
+  .clash-side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 110px;
+  }
+
+  .clash-label {
+    font-size: 12px;
+    color: #d8c8b0;
+    font-weight: 700;
+  }
+
+  /* 제출된 큼직한 패 그래픽 */
+  .submitted-card {
+    width: clamp(68px, 11vw, 96px);
+    height: clamp(96px, 15.5vh, 136px);
+    border-radius: 8px;
+    border: 2px dashed rgba(212, 175, 55, 0.35);
+    display: grid;
+    place-items: center;
+    position: relative;
+    background: rgba(10, 2, 4, 0.35);
+    transition: transform 0.25s, box-shadow 0.25s;
+  }
+
+  .submitted-card.filled-black {
+    background: linear-gradient(145deg, #252529 0%, #0d0d10 100%);
+    border: 2.5px solid var(--gold-mid);
+    color: #f4f1ea;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.85);
+    animation: popTile 0.25s ease-out;
+  }
+
+  .submitted-card.filled-white {
+    background: linear-gradient(145deg, #ffffff 0%, #dfd8c8 100%);
+    border: 2.5px solid var(--gold-mid);
+    color: #161618;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.85);
+    animation: popTile 0.25s ease-out;
+  }
+
+  .submitted-card.winner-glow {
+    box-shadow: 0 0 0 3px var(--win-glow), 0 0 25px rgba(255, 215, 0, 0.75);
+  }
+
+  .card-symbol {
+    font-family: 'Georgia', serif;
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 900;
+  }
+
+  .card-mystery {
+    opacity: 0.42;
+  }
+
+  .verdict-text {
+    height: 22px;
+    font-size: clamp(15px, 2.2vw, 20px);
+    font-weight: 900;
+    letter-spacing: 2px;
+  }
+  .verdict-text.win {
+    color: var(--win-glow);
+    text-shadow: 0 0 10px rgba(255,215,0,0.65);
+  }
+  .verdict-text.lose {
+    color: var(--lose-color);
+  }
+  .verdict-text.draw {
+    color: #e0c27b;
+  }
+
+  .status-prompt {
+    font-size: clamp(13px, 1.9vw, 16px);
+    font-weight: 700;
+    color: #fff1cf;
+    text-align: center;
+    min-height: 24px;
+    padding: 0 10px;
+  }
+
+  .bottom-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  /* 패스 앤 플레이 블라인드 모달 & 결과 모달 */
+  .overlay-modal {
+    position: absolute;
+    inset: 0;
+    background: rgba(12, 2, 4, 0.96);
+    z-index: 30;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 18px;
+    padding: 24px;
+    text-align: center;
+  }
+  .overlay-modal.active {
+    display: flex;
+  }
+
+  @keyframes popTile {
+    0% { transform: scale(0.75); opacity: 0.3; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="gold-frame">
+    <!-- 상단 매치 명패 -->
+    <div class="plaque-header">
+      <div class="plaque-box" onclick="confirmReturnHome()" title="메인 화면으로">
+        <span class="plaque-sub">DeathMatch</span>
+        <div class="plaque-title">흑과백</div>
+      </div>
+    </div>
+
+    <!-- 1. 메인 화면 -->
+    <div id="screenHome" class="screen active">
+      <div class="center-panel">
+        <div class="hero-tiles">
+          <div class="sample-tile black">0</div>
+          <div class="sample-tile white">1</div>
+          <div class="sample-tile black">2</div>
+          <div class="sample-tile white">3</div>
+          <div class="sample-tile black">4</div>
+          <div class="sample-tile white">5</div>
+          <div class="sample-tile black">6</div>
+          <div class="sample-tile white">7</div>
+          <div class="sample-tile black">8</div>
+        </div>
+
+        <p style="text-align:center; font-size:clamp(14px, 2vw, 16px); color:#ebd9c0; max-width:560px; line-height:1.5;">
+          0부터 8까지 9장의 흑·백 숫자 타일로 펼쳐지는 숨 막히는 비공개 수읽기 심리전.<br>
+          상대가 낸 타일의 색깔과 세워진 남은 패만 보고 승부를 지배하세요.
+        </p>
+
+        <!-- 전략 팁 & 비하인드 로테이션 카드 -->
+        <div class="tip-card">
+          <div class="tip-header">
+            <span id="tipCategory" class="tip-badge">필승 전략 #1</span>
+            <button class="gold-btn small" onclick="nextTip()">다음 팁 ▸</button>
+          </div>
+          <div id="tipContent" class="tip-body"></div>
+        </div>
+
+        <div class="btn-row">
+          <button class="gold-btn primary" onclick="showScreen('screenMode')">매치 입장하기</button>
+          <button class="gold-btn" onclick="showScreen('screenGuide')">게임 규칙 & 전략 브리핑</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 규칙 & 전략 브리핑 화면 -->
+    <div id="screenGuide" class="screen">
+      <div class="guide-grid">
+        <div class="guide-box">
+          <h3>📜 매치 공식 규칙</h3>
+          <ul>
+            <li><strong>타일 구성:</strong> 두 플레이어는 0~8까지 총 9장의 타일을 지급받습니다. 짝수(<strong>0, 2, 4, 6, 8</strong>)는 <strong>흑색</strong>, 홀수(<strong>1, 3, 5, 7</strong>)는 <strong>백색</strong> 타일입니다.</li>
+            <li><strong>선·후공 결정:</strong> 1라운드 선공은 무작위 추첨으로 정해지며, 2라운드부터는 <strong>전 라운드 승자</strong>가 선공이 됩니다. 무승부 시 직전 선공이 유지됩니다.</li>
+            <li><strong>비공개 판정:</strong> 선 플레이어가 먼저 타일을 제시하면 뒷면 색상(흑/백)만 노출됩니다. 후 플레이어가 타일을 내면 더 높은 숫자가 승점 1점을 얻으며, <strong>상대가 낸 숫자는 끝까지 공개되지 않습니다.</strong></li>
+            <li><strong>승패 및 연장전:</strong> 역전이 불가능한 점수 차가 나면 즉시 조기 종료되며, 9라운드 종료 후 동점이면 타일 9장을 새로 받고 <strong>연장전</strong>을 진행합니다.</li>
+          </ul>
+        </div>
+        <div class="guide-box">
+          <h3>🧠 핵심 전략 & 트리비아</h3>
+          <ul>
+            <li><strong>삼사법(三駟法) - 질 때는 크게, 이길 때는 작게:</strong> 상대가 높은 숫자(7, 8)를 낼 때 내 최저 타일(0, 1)을 버리고, 이길 때는 근소한 차이로 이겨야 후반 라운드 승률을 극대화할 수 있습니다.</li>
+            <li><strong>흑·백 균등 배분:</strong> 한쪽 색깔 타일만 편식해서 쓰면 후반에 남은 색깔만으로 상대가 내 홀/짝과 숫자 범위를 완벽히 간파합니다.</li>
+            <li><strong>무승부 노림수:</strong> 애매한 상황에서 동점을 유도하면 선공권을 뺏기지 않고 다음 라운드로 주도권을 넘길 수 있습니다.</li>
+            <li><strong>모티브와 변형:</strong> 원작 모티브는 『다빈치 코드』와 만화 『텐』의 '나인'이며, 국내 보드게임 『구룡투』 및 네덜란드·영국판 『Black & White』로도 등장했습니다.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="gold-btn primary" onclick="showScreen('screenMode')">모드 선택으로 이동</button>
+        <button class="gold-btn" onclick="showScreen('screenHome')">메인 화면</button>
+      </div>
+    </div>
+
+    <!-- 3. 플레이 모드 선택 화면 -->
+    <div id="screenMode" class="screen">
+      <div class="center-panel">
+        <h2 style="color:var(--gold-light); font-size:20px;">플레이 모드 선택</h2>
+        <div class="mode-cards">
+          <div class="mode-card">
+            <h3>🤖 VS 컴퓨터 (AI)</h3>
+            <p>삼사법과 흑백 카운팅을 구사하는 AI를 상대로 단독 매치 훈련을 진행합니다.</p>
+            <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">
+              <button class="gold-btn small" onclick="startAiGame('easy')">쉬움</button>
+              <button class="gold-btn small" onclick="startAiGame('normal')">보통</button>
+              <button class="gold-btn small primary" onclick="startAiGame('hard')">어려움</button>
+            </div>
+          </div>
+
+          <div class="mode-card">
+            <h3>📱 오프라인 2인 (패스 앤 플레이)</h3>
+            <p>태블릿 1대를 두고 두 사람이 번갈아 진행합니다. 턴 전환 시 패 보호 가림막이 작동합니다.</p>
+            <button class="gold-btn primary" onclick="startPassGame()">오프라인 2인 시작</button>
+          </div>
+
+          <div class="mode-card">
+            <h3>🌐 방 코드 1:1 대전</h3>
+            <p>각자의 태블릿에서 방 코드로 연결합니다. 방장의 메모리가 가상 딜러 역할을 수행합니다.</p>
+            <button class="gold-btn primary" onclick="showScreen('screenOnlineLobby')">온라인 로비 입장</button>
+          </div>
+        </div>
+        <button class="gold-btn" onclick="showScreen('screenHome')">뒤로 가기</button>
+      </div>
+    </div>
+
+    <!-- 4. 온라인 1:1 방 코드 로비 화면 -->
+    <div id="screenOnlineLobby" class="screen">
+      <div class="center-panel">
+        <h2 style="color:var(--gold-light); font-size:20px;">🌐 방 코드 1:1 온라인 대전</h2>
+        <p style="font-size:13px; color:#dcd0be; text-align:center;">
+          별도 서버 없이 방장(호스트)의 태블릿 메모리가 딜러가 되어 판정을 처리합니다.
+        </p>
+
+        <div class="guide-grid" style="max-height:250px;">
+          <div class="mode-card">
+            <h3>방 만들기 (호스트 · 김씨)</h3>
+            <p>방 코드를 생성하고 상대방을 기다립니다.</p>
+            <div id="hostCodeArea" style="display:none; flex-direction:column; align-items:center; gap:6px;">
+              <div id="hostRoomCode" class="room-code-box">-----</div>
+              <span id="hostWaitMsg" style="font-size:12px; color:var(--gold-light);">상대방 입장 대기 중...</span>
+            </div>
+            <button id="btnCreateRoom" class="gold-btn primary" onclick="createOnlineRoom()">방 코드 생성하기</button>
+          </div>
+
+          <div class="mode-card">
+            <h3>방 참가하기 (게스트 · 이씨)</h3>
+            <p>상대방 화면에 뜬 5자리 방 코드를 입력하세요.</p>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+              <input id="guestCodeInput" class="code-input" maxlength="5" placeholder="코드 5자리">
+              <button id="btnJoinRoom" class="gold-btn primary" onclick="joinOnlineRoom()">코드 입력 후 입장</button>
+              <span id="guestStatusMsg" style="font-size:12px; color:var(--gold-light);"></span>
+            </div>
+          </div>
+        </div>
+
+        <button class="gold-btn" onclick="cancelOnlineLobby()">모드 선택으로 돌아가기</button>
+      </div>
+    </div>
+
+    <!-- 5. 본 게임 화면 -->
+    <div id="screenGame" class="screen">
+      <div class="game-board">
+        <!-- 상단: 상대방 거치대 (히스토리 보드 없이 세워진 남은 패만 표시) -->
+        <div class="player-zone">
+          <div class="zone-header">
+            <div class="profile-group">
+              <div id="oppOrderBadge" class="order-badge">후</div>
+              <span id="oppNameLabel" class="player-name">상대 플레이어</span>
+            </div>
+            <div class="score-box">
+              <span id="oppRemainSummary" class="remain-summary">흑 5 · 백 4</span>
+              <div class="score-pill">승점 <span id="oppScoreVal">0</span></div>
+            </div>
+          </div>
+          <!-- 상대방의 세워진 9칸 타일 거치대 -->
+          <div id="oppTileRack" class="tile-rack"></div>
+        </div>
+
+        <!-- 중앙: 라운드 & 제출된 타일 대결 구역 -->
+        <div class="arena-center">
+          <div class="round-banner">
+            <span id="roundLabel">1 ROUND</span>
+            <span id="overtimeBadge" style="display:none; color:#ff9e9e; font-size:12px;">(연장전)</span>
+          </div>
+
+          <div class="clash-stage">
+            <!-- 상대방이 제출한 타일 그림 -->
+            <div class="clash-side">
+              <span id="oppClashLabel" class="clash-label">상대 제시 타일</span>
+              <div id="oppSubmittedCard" class="submitted-card">
+                <span class="card-symbol"></span>
+              </div>
+              <div id="oppVerdict" class="verdict-text"></div>
+            </div>
+
+            <div style="font-weight:900; color:var(--gold-mid); font-size:18px;">VS</div>
+
+            <!-- 내가 제출한 타일 그림 -->
+            <div class="clash-side">
+              <span id="myClashLabel" class="clash-label">나의 제시 타일</span>
+              <div id="mySubmittedCard" class="submitted-card">
+                <span class="card-symbol"></span>
+              </div>
+              <div id="myVerdict" class="verdict-text"></div>
+            </div>
+          </div>
+
+          <div id="statusPrompt" class="status-prompt">타일을 선택하여 제출하세요.</div>
+        </div>
+
+        <!-- 하단: 내 타일 거치대 및 조작 버튼 -->
+        <div class="player-zone">
+          <div class="zone-header">
+            <div class="profile-group">
+              <div id="myOrderBadge" class="order-badge first">선</div>
+              <span id="myNameLabel" class="player-name">나 (플레이어)</span>
+            </div>
+            <div class="score-box">
+              <span id="myRemainSummary" class="remain-summary">흑 5 · 백 4</span>
+              <div class="score-pill">승점 <span id="myScoreVal">0</span></div>
+            </div>
+          </div>
+
+          <!-- 내 9칸 숫자 타일 거치대 -->
+          <div id="myTileRack" class="tile-rack"></div>
+
+          <div class="bottom-controls">
+            <div style="display:flex; gap:6px;">
+              <button id="btnShuffleRack" class="gold-btn small" onclick="shuffleMyRack()">🔀 내 패 위치 섞기</button>
+              <button id="btnSortRack" class="gold-btn small" onclick="sortMyRack()">🔢 0~8 정렬</button>
+            </div>
+            <button id="btnSubmitTile" class="gold-btn small primary" onclick="confirmSubmitTile()" disabled>선택한 타일 제시하기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 오프라인 2인 패스 앤 플레이용 블라인드 오버레이 -->
+      <div id="blindModal" class="overlay-modal">
+        <h2 id="blindTitle" style="color:var(--gold-light); font-size:24px;">플레이어 전환</h2>
+        <p id="blindDesc" style="color:#e5d8c5; font-size:15px; max-width:420px; line-height:1.5;">
+          상대방에게 내 숫자 패가 보이지 않도록 화면을 가렸습니다.<br>다음 차례 플레이어가 태블릿을 넘겨받은 뒤 아래 버튼을 눌러주세요.
+        </p>
+        <button class="gold-btn primary" onclick="unlockBlindModal()">내가 넘겨받았습니다 (패 확인)</button>
+      </div>
+
+      <!-- 게임 종료 / 연장전 안내 오버레이 -->
+      <div id="resultModal" class="overlay-modal">
+        <span class="plaque-sub" style="font-size:13px;">DEATHMATCH RESULT</span>
+        <h2 id="resultHeadline" style="color:var(--win-glow); font-size:clamp(26px, 4vw, 36px);">최종 승리!</h2>
+        <p id="resultDetail" style="color:#f4e8d6; font-size:16px; line-height:1.55; max-width:460px;"></p>
+        <div class="btn-row">
+          <button class="gold-btn primary" onclick="rematchGame()">다시 대결하기</button>
+          <button class="gold-btn" onclick="confirmReturnHome()">메인 화면으로</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  /* ====== 매치 필승 전략 & 트리비아 데이터 ====== */
+  const TIPS_DATA = [
+    {
+      badge: "핵심 전술 · 삼사법(三駟法)",
+      text: "가장 중요한 원칙은 '질 때는 크게 지고, 이길 때는 근소하게 이기는 것'입니다. 상대가 7이나 8 같은 고숫자 타일을 낼 때 내 0이나 1을 버려야 남은 라운드에서 우위를 점할 수 있습니다."
+    },
+    {
+      badge: "색상 관리 · 흑백 균등 사용",
+      text: "흑색(0·2·4·6·8)과 백색(1·3·5·7) 타일은 균등하게 소모하는 것이 좋습니다. 한쪽 색깔만 남겨두면 상대가 홀짝 여부와 남은 숫자 범위를 손쉽게 유추할 수 있습니다."
+    },
+    {
+      badge: "고급 심리전 · 무승부 노림수",
+      text: "흑백이 구분된다는 점을 활용해 애매한 상황에서는 의도적으로 무승부를 노려보세요. 무승부가 나면 직전 라운드의 선공권이 그대로 유지되어 유리한 타이밍에 승부를 걸 수 있습니다."
+    },
+    {
+      badge: "0번 흑색 타일의 함정",
+      text: "흑색 타일은 가장 높은 숫자 '8'을 포함하고 있지만, 동시에 모든 타일에게 패배하는 '0'도 포함되어 있습니다. 선공이 흑색을 냈을 때 8 블러핑인지 0 버리기인지 읽는 것이 승부처입니다."
+    },
+    {
+      badge: "타일 섞어 세우기의 이유",
+      text: "타일을 굳이 0~8 순서대로 배치할 필요는 없습니다.1라운드 시작 전 내 거치대 순서를 섞어두면 상대가 내가 몇 번째 위치에서 타일을 뽑았는지만 보고 숫자를 추리하는 것을 차단할 수 있습니다."
+    },
+    {
+      badge: "모티브 & 비하인드 스토리",
+      text: "모티브가 된 보드게임은 『다빈치 코드』이며, 만화 『텐』의 게임 '나인'과도 전략이 흡사합니다. 이후 코리아보드게임즈에서 『구룡투』라는 이름으로 출시되었고, 영국·네덜란드판 지니어스에서도 'Black & White'로 등장했습니다."
+    }
+  ];
+
+  let currentTipIndex = 0;
+
+  function renderTip() {
+    const tip = TIPS_DATA[currentTipIndex];
+    document.getElementById('tipCategory').textContent = tip.badge;
+    document.getElementById('tipContent').textContent = tip.text;
+  }
+
+  function nextTip() {
+    currentTipIndex = (currentTipIndex + 1) % TIPS_DATA.length;
+    renderTip();
+  }
+
+  /* ====== 화면 전환 유틸 ====== */
+  function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+  }
+
+  function confirmReturnHome() {
+    cleanupPeer();
+    document.getElementById('resultModal').classList.remove('active');
+    document.getElementById('blindModal').classList.remove('active');
+    showScreen('screenHome');
+  }
+
+  /* ====== 전역 게임 상태 ====== */
+  let gameState = {
+    mode: 'ai',          // 'ai' | 'pass' | 'online_host' | 'online_guest'
+    aiLevel: 'hard',     // 'easy' | 'normal' | 'hard'
+    round: 1,
+    overtimeCount: 0,
+    firstPlayer: 0,      // 0: P1(나/방장), 1: P2(AI/상대/게스트)
+    turnPlayer: 0,       // 현재 제출할 차례 (0 또는 1)
+    phase: 'selecting',  // 'selecting' | 'revealing' | 'ended'
+    scores: [0, 0],
+    // 각 플레이어의 거치대 슬롯 9개: { num: 0~8, color: 'black'|'white', used: false }
+    racks: [[], []],
+    // 현재 라운드에 제출된 타일 슬롯 인덱스 & 객체
+    submitted: [null, null],
+    selectedSlotIndex: null,
+    // 패스 앤 플레이 시 현재 화면을 보고 있는 플레이어 인덱스 (0 또는 1)
+    viewingPlayer: 0
+  };
+
+  function isBlackNum(n) {
+    return n % 2 === 0;
+  }
+
+  function createInitialRack(shuffled = true) {
+    const arr = [];
+    for (let n = 0; n <= 8; n++) {
+      arr.push({
+        num: n,
+        color: isBlackNum(n) ? 'black' : 'white',
+        used: false
+      });
+    }
+    if (shuffled) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+    return arr;
+  }
+
+  /* ====== 게임 초기화 및 시작 ====== */
+  function initMatch(mode, aiLevel = 'hard') {
+    gameState.mode = mode;
+    gameState.aiLevel = aiLevel;
+    gameState.round = 1;
+    gameState.overtimeCount = 0;
+    gameState.scores = [0, 0];
+    // 1라운드 선공 랜덤 결정
+    gameState.firstPlayer = Math.random() < 0.5 ? 0 : 1;
+    gameState.turnPlayer = gameState.firstPlayer;
+    gameState.phase = 'selecting';
+    gameState.racks = [createInitialRack(true), createInitialRack(true)];
+    gameState.submitted = [null, null];
+    gameState.selectedSlotIndex = null;
+    gameState.viewingPlayer = (mode === 'pass') ? gameState.turnPlayer : 0;
+
+    document.getElementById('resultModal').classList.remove('active');
+    document.getElementById('blindModal').classList.remove('active');
+    clearClashStage();
+    showScreen('screenGame');
+    updateGameUI();
+
+    if (mode === 'ai' && gameState.turnPlayer === 1) {
+      setTimeout(runAiTurn, 750);
+    }
+  }
+
+  function startAiGame(level) {
+    initMatch('ai', level);
+  }
+
+  function startPassGame() {
+    initMatch('pass');
+    const firstLabel = gameState.firstPlayer === 0 ? '플레이어 1' : '플레이어 2';
+    openBlindModal(`🎲 1라운드 선공: ${firstLabel}`, `무작위 추첨 결과 1라운드 선공은 [${firstLabel}]입니다. 기기를 넘겨받은 뒤 패를 확인하세요.`);
+  }
+
+  function rematchGame() {
+    if (gameState.mode === 'online_host') {
+      initMatch('online_host');
+      sendHostSync('new_match');
+    } else if (gameState.mode === 'online_guest') {
+      // 게스트는 호스트에게 재경기 요청 전송
+      if (conn && conn.open) {
+        conn.send({ type: 'request_rematch' });
+      }
+    } else {
+      initMatch(gameState.mode, gameState.aiLevel);
+    }
+  }
+
+  /* ====== 내 거치대 섞기 / 정렬 (1라운드 타일 제출 전 언제든 가능, 상대 화면에도 배치 동기화) ====== */
+  function shuffleMyRack() {
+    const pIdx = getLocalPlayerIndex();
+    const rack = gameState.racks[pIdx];
+    for (let i = rack.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rack[i], rack[j]] = [rack[j], rack[i]];
+    }
+    gameState.selectedSlotIndex = null;
+    syncRackOrderIfOnline(pIdx);
+    updateGameUI();
+  }
+
+  function sortMyRack() {
+    const pIdx = getLocalPlayerIndex();
+    gameState.racks[pIdx].sort((a, b) => a.num - b.num);
+    gameState.selectedSlotIndex = null;
+    syncRackOrderIfOnline(pIdx);
+    updateGameUI();
+  }
+
+  function syncRackOrderIfOnline(pIdx) {
+    if (gameState.mode === 'online_host') {
+      sendHostSync('rack_reordered');
+    } else if (gameState.mode === 'online_guest' && conn && conn.open) {
+      // 게스트가 자기 패 순서를 바꾸면 호스트에게 색상 배열이 바뀌었음을 전달
+      const orderNums = gameState.racks[pIdx].map(t => ({ num: t.num, used: t.used }));
+      conn.send({ type: 'guest_reorder', rackOrder: orderNums });
+    }
+  }
+
+  function getLocalPlayerIndex() {
+    if (gameState.mode === 'pass') return gameState.viewingPlayer;
+    if (gameState.mode === 'online_guest') return 1;
+    return 0;
+  }
+
+  /* ====== UI 렌더링 ====== */
+  function updateGameUI() {
+    const me = getLocalPlayerIndex();
+    const opp = 1 - me;
+
+    // 이름 설정
+    let myName = '나 (플레이어)';
+    let oppName = '상대 플레이어';
+    if (gameState.mode === 'ai') {
+      const lvKor = { easy: '쉬움', normal: '보통', hard: '어려움' }[gameState.aiLevel];
+      myName = '플레이어';
+      oppName = `AI 딜러 (${lvKor})`;
+    } else if (gameState.mode === 'pass') {
+      myName = `플레이어 ${me + 1}`;
+      oppName = `플레이어 ${opp + 1}`;
+    } else if (gameState.mode === 'online_host') {
+      myName = '방장 (나)';
+      oppName = '참가자 (상대)';
+    } else if (gameState.mode === 'online_guest') {
+      myName = '참가자 (나)';
+      oppName = '방장 (상대)';
+    }
+
+    document.getElementById('myNameLabel').textContent = myName;
+    document.getElementById('oppNameLabel').textContent = oppName;
+    document.getElementById('myClashLabel').textContent = `${myName} 제시`;
+    document.getElementById('oppClashLabel').textContent = `${oppName} 제시`;
+
+    // 선/후공 뱃지
+    const isMyFirst = (gameState.firstPlayer === me);
+    const myBadge = document.getElementById('myOrderBadge');
+    const oppBadge = document.getElementById('oppOrderBadge');
+    myBadge.textContent = isMyFirst ? '선' : '후';
+    myBadge.className = 'order-badge' + (isMyFirst ? ' first' : '');
+    oppBadge.textContent = isMyFirst ? '후' : '선';
+    oppBadge.className = 'order-badge' + (!isMyFirst ? ' first' : '');
+
+    // 점수 및 라운드
+    document.getElementById('myScoreVal').textContent = gameState.scores[me];
+    document.getElementById('oppScoreVal').textContent = gameState.scores[opp];
+    document.getElementById('roundLabel').textContent = `${gameState.round} ROUND`;
+    const otBadge = document.getElementById('overtimeBadge');
+    if (gameState.overtimeCount > 0) {
+      otBadge.style.display = 'inline';
+      otBadge.textContent = `(연장 ${gameState.overtimeCount}차)`;
+    } else {
+      otBadge.style.display = 'none';
+    }
+
+    // 남은 흑/백 개수 요약
+    const myRack = gameState.racks[me];
+    const oppRack = gameState.racks[opp];
+    const myBlackLeft = myRack.filter(t => !t.used && t.color === 'black').length;
+    const myWhiteLeft = myRack.filter(t => !t.used && t.color === 'white').length;
+    const oppBlackLeft = oppRack.filter(t => !t.used && t.color === 'black').length;
+    const oppWhiteLeft = oppRack.filter(t => !t.used && t.color === 'white').length;
+
+    document.getElementById('myRemainSummary').textContent = `흑 ${myBlackLeft} · 백 ${myWhiteLeft}`;
+    document.getElementById('oppRemainSummary').textContent = `흑 ${oppBlackLeft} · 백 ${oppWhiteLeft}`;
+
+    // 상단: 상대방 세워진 패 거치대 렌더링 (사용한 슬롯은 비워짐)
+    const oppRackEl = document.getElementById('oppTileRack');
+    oppRackEl.innerHTML = '';
+    oppRack.forEach((tile) => {
+      const slot = document.createElement('div');
+      slot.className = 'opp-slot';
+      if (!tile.used) {
+        const standing = document.createElement('div');
+        standing.className = `opp-tile-standing ${tile.color}`;
+        slot.appendChild(standing);
+      }
+      oppRackEl.appendChild(slot);
+    });
+
+    // 하단: 내 타일 거치대 렌더링
+    const myRackEl = document.getElementById('myTileRack');
+    myRackEl.innerHTML = '';
+    const isMyTurnToPick = (gameState.phase === 'selecting' && gameState.turnPlayer === me);
+
+    myRack.forEach((tile, idx) => {
+      const slot = document.createElement('div');
+      slot.className = 'my-slot';
+      if (!tile.used) {
+        const btn = document.createElement('div');
+        btn.className = `my-tile ${tile.color}`;
+        if (gameState.selectedSlotIndex === idx) btn.classList.add('selected');
+        if (!isMyTurnToPick) btn.classList.add('disabled');
+        btn.textContent = tile.num;
+        btn.onclick = () => {
+          if (!isMyTurnToPick) return;
+          gameState.selectedSlotIndex = (gameState.selectedSlotIndex === idx) ? null : idx;
+          updateGameUI();
+        };
+        slot.appendChild(btn);
+      }
+      myRackEl.appendChild(slot);
+    });
+
+    // 제출 버튼 활성화 여부
+    const submitBtn = document.getElementById('btnSubmitTile');
+    submitBtn.disabled = !(isMyTurnToPick && gameState.selectedSlotIndex !== null);
+
+    // 셔플 버튼은 타일 선택 중일 때 언제든 사용 가능
+    document.getElementById('btnShuffleRack').disabled = !isMyTurnToPick;
+    document.getElementById('btnSortRack').disabled = !isMyTurnToPick;
+
+    // 중앙 제출 카드 그래픽 업데이트
+    renderSubmittedCards(me, opp);
+
+    // 상태 안내 메시지
+    const promptEl = document.getElementById('statusPrompt');
+    if (gameState.phase === 'selecting') {
+      if (gameState.turnPlayer === me) {
+        if (gameState.submitted[opp] !== null) {
+          const oppColorKor = gameState.submitted[opp].color === 'black' ? '흑색(짝수)' : '백색(홀수)';
+          promptEl.textContent = `상대가 [${oppColorKor}] 타일을 제시했습니다! 대응할 타일을 선택하세요.`;
+        } else {
+          promptEl.textContent = `당신이 [선(先)] 플레이어입니다. 먼저 제시할 숫자 타일을 선택하세요.`;
+        }
+      } else {
+        promptEl.textContent = `${oppName}가 제시할 타일을 고르고 있습니다...`;
+      }
+    }
+  }
+
+  function renderSubmittedCards(me, opp) {
+    const myCardEl = document.getElementById('mySubmittedCard');
+    const oppCardEl = document.getElementById('oppSubmittedCard');
+    const mySym = myCardEl.querySelector('.card-symbol');
+    const oppSym = oppCardEl.querySelector('.card-symbol');
+
+    const mySub = gameState.submitted[me];
+    const oppSub = gameState.submitted[opp];
+
+    // 내 제출 카드 표시 (나는 내가 낸 숫자를 볼 수 있음)
+    myCardEl.className = 'submitted-card';
+    if (mySub) {
+      myCardEl.classList.add(mySub.color === 'black' ? 'filled-black' : 'filled-white');
+      mySym.textContent = (mySub.num !== undefined && mySub.num !== null) ? mySub.num : '?';
+      mySym.className = 'card-symbol';
+    } else {
+      mySym.textContent = '';
+    }
+
+    // 상대 제출 카드 표시 (상대 타일은 흑/백 색상과 '?'만 표시, 숫자는 절대 비공개!)
+    oppCardEl.className = 'submitted-card';
+    if (oppSub) {
+      oppCardEl.classList.add(oppSub.color === 'black' ? 'filled-black' : 'filled-white');
+      oppSym.textContent = '?';
+      oppSym.className = 'card-symbol card-mystery';
+    } else {
+      oppSym.textContent = '';
+    }
+  }
+
+  function clearClashStage() {
+    document.getElementById('myVerdict').textContent = '';
+    document.getElementById('myVerdict').className = 'verdict-text';
+    document.getElementById('oppVerdict').textContent = '';
+    document.getElementById('oppVerdict').className = 'verdict-text';
+    document.getElementById('mySubmittedCard').classList.remove('winner-glow');
+    document.getElementById('oppSubmittedCard').classList.remove('winner-glow');
+  }
+
+  /* ====== 타일 제출 처리 ====== */
+  function confirmSubmitTile() {
+    const me = getLocalPlayerIndex();
+    if (gameState.phase !== 'selecting' || gameState.turnPlayer !== me) return;
+    if (gameState.selectedSlotIndex === null) return;
+
+    const slotIdx = gameState.selectedSlotIndex;
+    gameState.selectedSlotIndex = null;
+
+    if (gameState.mode === 'online_guest') {
+      // 게스트는 호스트 딜러에게 자신이 선택한 슬롯 인덱스를 전송
+      if (conn && conn.open) {
+        conn.send({ type: 'guest_pick', slotIdx });
+      }
+      return;
+    }
+
+    processPickOnAuthority(me, slotIdx);
+  }
+
+  // 호스트(또는 로컬) 메모리에서 실행되는 공식 딜러 처리 함수
+  function processPickOnAuthority(playerIdx, slotIdx) {
+    const tile = gameState.racks[playerIdx][slotIdx];
+    if (!tile || tile.used) return;
+
+    tile.used = true;
+    gameState.submitted[playerIdx] = {
+      slotIdx,
+      num: tile.num,
+      color: tile.color
+    };
+
+    const otherIdx = 1 - playerIdx;
+
+    // 아직 상대방이 제출하지 않았다면 (선 플레이어가 방금 제출한 상태)
+    if (gameState.submitted[otherIdx] === null) {
+      gameState.turnPlayer = otherIdx;
+      updateGameUI();
+
+      if (gameState.mode === 'online_host') {
+        sendHostSync('first_picked');
+      } else if (gameState.mode === 'ai' && otherIdx === 1) {
+        setTimeout(runAiTurn, 750);
+      } else if (gameState.mode === 'pass') {
+        gameState.viewingPlayer = otherIdx;
+        updateGameUI();
+        const colorKor = tile.color === 'black' ? '흑색(짝수)' : '백색(홀수)';
+        openBlindModal(
+          `플레이어 ${otherIdx + 1} (후공) 차례`,
+          `선 플레이어가 [${colorKor}] 타일을 제시했습니다! 기기를 넘겨받아 대응할 타일을 선택하세요.`
+        );
+      }
+    } else {
+      // 선·후 플레이어 모두 제출 완료 -> 딜러 판정 진입
+      evaluateRoundOnAuthority();
+    }
+  }
+
+  /* ====== 딜러 판정 (상대 숫자는 비공개로 유지한 채 승/패/무 및 조기 종료 판정) ====== */
+  function evaluateRoundOnAuthority() {
+    gameState.phase = 'revealing';
+    const sub0 = gameState.submitted[0];
+    const sub1 = gameState.submitted[1];
+
+    let roundWinner = -1; // -1: 무승부, 0: P1 승, 1: P2 승
+    if (sub0.num > sub1.num) {
+      roundWinner = 0;
+      gameState.scores[0] += 1;
+      gameState.firstPlayer = 0; // 승자가 다음 라운드 선공
+    } else if (sub1.num > sub0.num) {
+      roundWinner = 1;
+      gameState.scores[1] += 1;
+      gameState.firstPlayer = 1;
+    } else {
+      roundWinner = -1;
+      // 무승부 시 직전 라운드 선공 유지
+    }
+
+    updateGameUI();
+    showRoundVerdictEffect(roundWinner);
+
+    if (gameState.mode === 'online_host') {
+      sendHostSync('round_evaluated', { roundWinner });
+    }
+
+    // 2.1초 후 다음 라운드 또는 조기 종료 / 연장전 체크
+    setTimeout(() => {
+      checkMatchContinuation();
+    }, 2100);
+  }
+
+  function showRoundVerdictEffect(roundWinner) {
+    const me = getLocalPlayerIndex();
+    const myVerdictEl = document.getElementById('myVerdict');
+    const oppVerdictEl = document.getElementById('oppVerdict');
+    const myCardEl = document.getElementById('mySubmittedCard');
+    const oppCardEl = document.getElementById('oppSubmittedCard');
+    const promptEl = document.getElementById('statusPrompt');
+
+    if (roundWinner === -1) {
+      myVerdictEl.textContent = 'DRAW';
+      myVerdictEl.className = 'verdict-text draw';
+      oppVerdictEl.textContent = 'DRAW';
+      oppVerdictEl.className = 'verdict-text draw';
+      promptEl.textContent = `무승부! (두 플레이어가 같은 숫자를 제시했습니다. 선공이 유지됩니다.)`;
+    } else if (roundWinner === me) {
+      myVerdictEl.textContent = 'WIN +1';
+      myVerdictEl.className = 'verdict-text win';
+      oppVerdictEl.textContent = 'LOSE';
+      oppVerdictEl.className = 'verdict-text lose';
+      myCardEl.classList.add('winner-glow');
+      promptEl.textContent = `라운드 승리! 승점 1점을 획득하고 다음 라운드 [선(先)]을 가져옵니다.`;
+    } else {
+      myVerdictEl.textContent = 'LOSE';
+      myVerdictEl.className = 'verdict-text lose';
+      oppVerdictEl.textContent = 'WIN +1';
+      oppVerdictEl.className = 'verdict-text win';
+      oppCardEl.classList.add('winner-glow');
+      promptEl.textContent = `라운드 패배! 상대가 승점 1점과 다음 라운드 [선(先)]을 가져갑니다.`;
+    }
+  }
+
+  /* ====== 조기 종료 & 연장전 체크 ====== */
+  function checkMatchContinuation() {
+    const remainingRounds = 9 - gameState.round;
+    const scoreDiff = Math.abs(gameState.scores[0] - gameState.scores[1]);
+
+    // 1. 남은 라운드를 다 이겨도 역전이 불가능한 경우 -> 즉시 조기 종료!
+    if (scoreDiff > remainingRounds) {
+      const finalWinner = gameState.scores[0] > gameState.scores[1] ? 0 : 1;
+      const isEarly = remainingRounds > 0;
+      finishMatch(finalWinner, isEarly);
+      if (gameState.mode === 'online_host') {
+        sendHostSync('match_finished', { finalWinner, isEarly });
+      }
+      return;
+    }
+
+    // 2. 9라운드가 모두 끝났는데 동점인 경우 -> 타일 9장 새로 지급 후 연장전!
+    if (remainingRounds === 0 && scoreDiff === 0) {
+      gameState.overtimeCount += 1;
+      gameState.round = 1;
+      gameState.racks = [createInitialRack(true), createInitialRack(true)];
+      gameState.submitted = [null, null];
+      gameState.turnPlayer = gameState.firstPlayer;
+      gameState.phase = 'selecting';
+      clearClashStage();
+      updateGameUI();
+      document.getElementById('statusPrompt').textContent =
+        `🔥 승점 동점! 0~8 타일 9장이 새로 지급되어 [연장전 ${gameState.overtimeCount}차]에 돌입합니다!`;
+
+      if (gameState.mode === 'online_host') {
+        sendHostSync('overtime_started');
+      } else if (gameState.mode === 'ai' && gameState.turnPlayer === 1) {
+        setTimeout(runAiTurn, 900);
+      } else if (gameState.mode === 'pass') {
+        gameState.viewingPlayer = gameState.turnPlayer;
+        updateGameUI();
+        openBlindModal(
+          `🔥 연장전 1라운드 돌입!`,
+          `승점 동점으로 모든 타일이 새로 지급되었습니다. 선공 플레이어(${gameState.turnPlayer + 1})가 기기를 넘겨받으세요.`
+        );
+      }
+      return;
+    }
+
+    // 3. 다음 라운드 정상 진행
+    gameState.round += 1;
+    gameState.submitted = [null, null];
+    gameState.turnPlayer = gameState.firstPlayer;
+    gameState.phase = 'selecting';
+    clearClashStage();
+
+    if (gameState.mode === 'pass') {
+      gameState.viewingPlayer = gameState.turnPlayer;
+    }
+    updateGameUI();
+
+    if (gameState.mode === 'online_host') {
+      sendHostSync('next_round');
+    } else if (gameState.mode === 'ai' && gameState.turnPlayer === 1) {
+      setTimeout(runAiTurn, 700);
+    } else if (gameState.mode === 'pass') {
+      openBlindModal(
+        `${gameState.round}라운드 · 플레이어 ${gameState.turnPlayer + 1} (선공) 차례`,
+        `전 라운드 결과에 따라 플레이어 ${gameState.turnPlayer + 1}님이 선공입니다. 기기를 넘겨받아 주세요.`
+      );
+    }
+  }
+
+  function finishMatch(winnerIdx, isEarly) {
+    gameState.phase = 'ended';
+    const me = getLocalPlayerIndex();
+    const opp = 1 - me;
+    const modal = document.getElementById('resultModal');
+    const head = document.getElementById('resultHeadline');
+    const detail = document.getElementById('resultDetail');
+
+    const earlyText = isEarly ? `(${gameState.round}라운드 만에 역전 불가 조기 종료!)` : `(9라운드 최종 결산)`;
+
+    if (gameState.mode === 'pass') {
+      head.textContent = `🏆 플레이어 ${winnerIdx + 1} 매치 승리!`;
+      detail.textContent = `최종 승점 ${gameState.scores[0]} : ${gameState.scores[1]} ${earlyText}`;
+    } else {
+      if (winnerIdx === me) {
+        head.textContent = `🏆 매치 최종 승리!`;
+        head.style.color = 'var(--win-glow)';
+        detail.textContent = `승점 ${gameState.scores[me]} : ${gameState.scores[opp]} ${earlyText}\n치밀한 수읽기로 상대를 제압하고 생존하셨습니다!`;
+      } else {
+        head.textContent = `💀 매치 패배 (탈락)`;
+        head.style.color = '#ff8a8a';
+        detail.textContent = `승점 ${gameState.scores[me]} : ${gameState.scores[opp]} ${earlyText}\n아쉽게도 상대의 심리전에 패배하였습니다.`;
+      }
+    }
+    modal.classList.add('active');
+  }
+
+  /* ====== 오프라인 패스 앤 플레이 가림막 ====== */
+  function openBlindModal(title, desc) {
+    document.getElementById('blindTitle').textContent = title;
+    document.getElementById('blindDesc').textContent = desc;
+    document.getElementById('blindModal').classList.add('active');
+  }
+
+  function unlockBlindModal() {
+    document.getElementById('blindModal').classList.remove('active');
+    updateGameUI();
+  }
+
+  /* ====== AI 의사결정 알고리즘 (삼사법 & 흑백 카운팅) ====== */
+  function runAiTurn() {
+    if (gameState.phase !== 'selecting' || gameState.turnPlayer !== 1) return;
+    const aiRack = gameState.racks[1];
+    const availIndices = [];
+    aiRack.forEach((t, idx) => {
+      if (!t.used) availIndices.push(idx);
+    });
+    if (availIndices.length === 0) return;
+
+    let chosenSlot = availIndices[0];
+
+    if (gameState.aiLevel === 'easy') {
+      chosenSlot = availIndices[Math.floor(Math.random() * availIndices.length)];
+    } else {
+      const playerSub = gameState.submitted[0]; // 선공이 플레이어인 경우 색상 확인 가능
+      // 플레이어에게 남은 흑/백 개수 파악
+      const pRack = gameState.racks[0];
+      const pBlackLeft = pRack.filter(t => !t.used && t.color === 'black').length;
+      const pWhiteLeft = pRack.filter(t => !t.used && t.color === 'white').length;
+
+      if (playerSub === null) {
+        // AI가 선공인 경우: 흑백 균형을 맞추며 중상위 타일 또는 블러핑 타일 제시
+        const blackSlots = availIndices.filter(i => aiRack[i].color === 'black');
+        const whiteSlots = availIndices.filter(i => aiRack[i].color === 'white');
+        let pool = availIndices;
+        if (blackSlots.length > whiteSlots.length + 1) pool = blackSlots;
+        else if (whiteSlots.length > blackSlots.length + 1) pool = whiteSlots;
+
+        if (gameState.aiLevel === 'hard' && Math.random() < 0.7) {
+          // 중간~상위권 타일로 선공 주도권 유지 시도
+          const sortedPool = [...pool].sort((a, b) => aiRack[a].num - aiRack[b].num);
+          chosenSlot = sortedPool[Math.floor(sortedPool.length * 0.6)];
+        } else {
+          chosenSlot = pool[Math.floor(Math.random() * pool.length)];
+        }
+      } else {
+        // AI가 후공인 경우: 플레이어가 낸 타일의 색깔(흑/백)을 보고 삼사법 구사!
+        const oppColor = playerSub.color;
+        const sortedSlots = [...availIndices].sort((a, b) => aiRack[a].num - aiRack[b].num);
+        const lowestSlot = sortedSlots[0];
+
+        if (oppColor === 'black') {
+          // 상대가 짝수(0,2,4,6,8)를 냄 -> 5나 7이 있으면 근소 우위 승리 노리고, 마땅치 않으면 최저패(삼사법) 버리기
+          const midHigh = sortedSlots.filter(i => aiRack[i].num >= 5 && aiRack[i].num <= 7);
+          if (midHigh.length > 0 && Math.random() < 0.68) {
+            chosenSlot = midHigh[0];
+          } else {
+            chosenSlot = lowestSlot; // 삼사법: 상대 강패 의심 시 가장 낮은 패 버림
+          }
+        } else {
+          // 상대가 홀수(1,3,5,7)를 냄 -> 6이나 8 또는 4로 제압하거나 최저패 버리기
+          const winCandidates = sortedSlots.filter(i => aiRack[i].num >= 4);
+          if (winCandidates.length > 0 && Math.random() < 0.72) {
+            chosenSlot = winCandidates[Math.floor(Math.random() * winCandidates.length)];
+          } else {
+            chosenSlot = lowestSlot;
+          }
+        }
+      }
+    }
+
+    processPickOnAuthority(1, chosenSlot);
+  }
+
+  /* ====== WebRTC (PeerJS) 서버리스 방 코드 1:1 통신 (호스트 메모리 = 딜러) ====== */
+  let peer = null;
+  let conn = null;
+  const PEER_PREFIX = 'GENIUS_BW_2026_';
+
+  function generateShortCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 5; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
+  function cleanupPeer() {
+    if (conn) {
+      try { conn.close(); } catch (e) {}
+      conn = null;
+    }
+    if (peer) {
+      try { peer.destroy(); } catch (e) {}
+      peer = null;
+    }
+    document.getElementById('hostCodeArea').style.display = 'none';
+    document.getElementById('btnCreateRoom').disabled = false;
+    document.getElementById('guestStatusMsg').textContent = '';
+  }
+
+  function cancelOnlineLobby() {
+    cleanupPeer();
+    showScreen('screenMode');
+  }
+
+  // 방장(김씨): 방 생성
+  function createOnlineRoom() {
+    cleanupPeer();
+    const roomCode = generateShortCode();
+    document.getElementById('btnCreateRoom').disabled = true;
+    document.getElementById('hostCodeArea').style.display = 'flex';
+    document.getElementById('hostRoomCode').textContent = roomCode;
+    document.getElementById('hostWaitMsg').textContent = '방 코드가 생성되었습니다. 상대방의 입장을 기다리는 중...';
+
+    peer = new Peer(PEER_PREFIX + roomCode);
+    peer.on('open', () => {
+      // 대기
+    });
+    peer.on('connection', (incomingConn) => {
+      conn = incomingConn;
+      setupHostConnection();
+    });
+    peer.on('error', (err) => {
+      document.getElementById('hostWaitMsg').textContent = '네트워크 연결 오류: ' + err.type;
+      document.getElementById('btnCreateRoom').disabled = false;
+    });
+  }
+
+  function setupHostConnection() {
+    conn.on('open', () => {
+      // 연결 성공 즉시 호스트 메모리에서 매치 초기화 후 게스트에 상태 전송
+      initMatch('online_host');
+      sendHostSync('match_start');
+    });
+    conn.on('data', (data) => {
+      if (!data || !data.type) return;
+      if (data.type === 'guest_pick') {
+        if (gameState.phase === 'selecting' && gameState.turnPlayer === 1) {
+          processPickOnAuthority(1, data.slotIdx);
+        }
+      } else if (data.type === 'guest_reorder') {
+        // 게스트가 자기 패 위치를 섞거나 정렬했을 때 반영
+        if (Array.isArray(data.rackOrder) && data.rackOrder.length === 9) {
+          gameState.racks[1] = data.rackOrder.map(item => ({
+            num: item.num,
+            color: isBlackNum(item.num) ? 'black' : 'white',
+            used: item.used
+          }));
+          updateGameUI();
+          sendHostSync('rack_reordered');
+        }
+      } else if (data.type === 'request_rematch') {
+        initMatch('online_host');
+        sendHostSync('new_match');
+      }
+    });
+    conn.on('close', () => {
+      alert('상대방과의 연결이 종료되었습니다.');
+      confirmReturnHome();
+    });
+  }
+
+  // 호스트가 게스트에게 게임 상태를 동기화 (호스트의 실제 숫자는 마스킹하여 치팅 방지!)
+  function sendHostSync(eventTag, extra = {}) {
+    if (!conn || !conn.open) return;
+
+    // 호스트(0번)의 숫자 타일은 게스트에게 색상(color)과 사용 여부(used)만 보내고 숫자는 숨김
+    const maskedHostRack = gameState.racks[0].map(t => ({
+      color: t.color,
+      used: t.used,
+      num: null
+    }));
+
+    const maskedSub0 = gameState.submitted[0]
+      ? { slotIdx: gameState.submitted[0].slotIdx, color: gameState.submitted[0].color, num: null }
+      : null;
+
+    conn.send({
+      type: 'host_sync',
+      eventTag,
+      extra,
+      statePayload: {
+        round: gameState.round,
+        overtimeCount: gameState.overtimeCount,
+        firstPlayer: gameState.firstPlayer,
+        turnPlayer: gameState.turnPlayer,
+        phase: gameState.phase,
+        scores: gameState.scores,
+        hostRackMasked: maskedHostRack,
+        guestRackFull: gameState.racks[1],
+        submitted0Masked: maskedSub0,
+        submitted1Full: gameState.submitted[1]
+      }
+    });
+  }
+
+  // 참가자(이씨): 방 코드로 입장
+  function joinOnlineRoom() {
+    const rawCode = document.getElementById('guestCodeInput').value.trim().toUpperCase();
+    if (rawCode.length !== 5) {
+      document.getElementById('guestStatusMsg').textContent = '5자리 방 코드를 정확히 입력해주세요.';
+      return;
+    }
+    cleanupPeer();
+    document.getElementById('guestStatusMsg').textContent = '방에 연결하는 중...';
+
+    peer = new Peer();
+    peer.on('open', () => {
+      conn = peer.connect(PEER_PREFIX + rawCode);
+      conn.on('open', () => {
+        document.getElementById('guestStatusMsg').textContent = '연결 완료! 게임을 시작합니다.';
+      });
+      conn.on('data', (data) => {
+        if (data && data.type === 'host_sync') {
+          applyGuestSync(data);
+        }
+      });
+      conn.on('close', () => {
+        alert('방장과의 연결이 종료되었습니다.');
+        confirmReturnHome();
+      });
+    });
+    peer.on('error', () => {
+      document.getElementById('guestStatusMsg').textContent = '방을 찾을 수 없거나 연결에 실패했습니다.';
+    });
+  }
+
+  function applyGuestSync(data) {
+    const p = data.statePayload;
+    gameState.mode = 'online_guest';
+    gameState.round = p.round;
+    gameState.overtimeCount = p.overtimeCount;
+    gameState.firstPlayer = p.firstPlayer;
+    gameState.turnPlayer = p.turnPlayer;
+    gameState.phase = p.phase;
+    gameState.scores = p.scores;
+    gameState.racks = [p.hostRackMasked, p.guestRackFull];
+    gameState.submitted = [p.submitted0Masked, p.submitted1Full];
+
+    if (data.eventTag === 'match_start' || data.eventTag === 'new_match') {
+      document.getElementById('resultModal').classList.remove('active');
+      clearClashStage();
+      showScreen('screenGame');
+    } else if (data.eventTag === 'next_round' || data.eventTag === 'overtime_started') {
+      clearClashStage();
+    }
+
+    updateGameUI();
+
+    if (data.eventTag === 'round_evaluated') {
+      showRoundVerdictEffect(data.extra.roundWinner);
+    } else if (data.eventTag === 'overtime_started') {
+      document.getElementById('statusPrompt').textContent =
+        `🔥 승점 동점! 0~8 타일 9장이 새로 지급되어 [연장전 ${gameState.overtimeCount}차]에 돌입합니다!`;
+    } else if (data.eventTag === 'match_finished') {
+      finishMatch(data.extra.finalWinner, data.extra.isEarly);
+    }
+  }
+
+  // 초기 팁 렌더링
+  renderTip();
+</script>
+</body>
+</html>
